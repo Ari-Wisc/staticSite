@@ -1,6 +1,131 @@
 import re
 
 from textnode import TextNode, TextType
+from htmlnode import HTMLNode, LeafNode, ParentNode
+
+
+
+def markdown_to_html_node(markdown):
+    # Step 1: Split the markdown into blocks
+    blocks = markdown_to_blocks(markdown)
+    
+    # Step 2: Create the parent HTMLNode
+    parent_node = ParentNode("div", [])
+    
+    # Step 3: Loop through each block, determine the type, and create appropriate HTMLNode
+    for block in blocks:
+        block_type = block_to_block_type(block.strip())  # Determine block type
+        block_node = None
+        
+        if block_type == "heading":
+            # Heading with level based on the number of `#`
+            level = block.count("#")  # Number of '#' indicates level
+            block_node = LeafNode(f"h{level}", block.strip("#").strip())
+        
+        elif block_type == "code":
+            # Code block inside <pre><code>
+            block_node = ParentNode("pre", [LeafNode("code", block.strip("`"))])
+        
+        elif block_type == "quote":
+            # Quote block inside <blockquote>
+            block_node = LeafNode("blockquote", block.strip(">").strip())
+        
+        elif block_type == "unordered_list":
+            # Unordered list inside <ul>
+            ul_node = ParentNode("ul", [])
+            list_items = block.split("\n")
+            for item in list_items:
+                ul_node.children.append(LeafNode("li", item.strip("* ").strip()))
+            block_node = ul_node
+        
+        elif block_type == "ordered_list":
+            # Ordered list inside <ol>
+            ol_node = ParentNode("ol", [])
+            list_items = block.split("\n")
+            for item in list_items:
+                # Correctly handle the ordered list item by removing the leading number (1.)
+                item_text = item.strip().lstrip("1234567890.")  # Strip the number and dot
+                ol_node.children.append(LeafNode("li", item_text.strip()))
+            block_node = ol_node
+        
+        elif block_type == "paragraph":
+            # Paragraph inside <p>
+            block_node = ParentNode("p", text_to_children(block.strip()))
+        
+        # Add the block_node to the parent_node
+        parent_node.children.append(block_node)
+    
+    return parent_node
+def text_to_children(text):
+    inline_nodes = []
+
+    # If there are no inline elements (bold, italic, code), return the text directly
+    if not any(marker in text for marker in ["**", "*", "`"]):
+        return [LeafNode(None, text)]  # Directly add the text without wrapping in a span
+
+    # Process for inline markdown: bold (**), italic (*), and code (`).
+    
+    # Handle **bold**
+    while "**" in text:
+        before, bold_text, after = text.split("**", 2)
+        inline_nodes.append(LeafNode("span", before))
+        inline_nodes.append(LeafNode("strong", bold_text))
+        text = after
+
+    # Handle *italic*
+    while "*" in text:
+        before, italic_text, after = text.split("*", 2)
+        inline_nodes.append(LeafNode("span", before))
+        inline_nodes.append(LeafNode("em", italic_text))
+        text = after
+
+    # Handle `code`
+    while "`" in text:
+        before, code_text, after = text.split("`", 2)
+        inline_nodes.append(LeafNode("span", before))
+        inline_nodes.append(LeafNode("code", code_text))
+        text = after
+
+    # Add any remaining text (if there is anything left)
+    if text:
+        inline_nodes.append(LeafNode("span", text))
+
+    return inline_nodes
+
+def markdown_to_blocks(markdown):
+    """
+    Splits raw markdown into a list of block strings based on blank lines.
+    Strips leading/trailing whitespace from each block and removes empty blocks.
+    """
+    # Split the markdown by blank lines (two or more newlines)
+    blocks = markdown.strip().split("\n\n")
+    # Strip leading/trailing whitespace from each block and filter out empty blocks
+    return [block.strip() for block in blocks if block.strip()]
+
+
+def block_to_block_type(block):
+    # Check for heading (starts with 1-6 '#' characters followed by a space)
+    if re.match(r'^#{1,6} ', block):
+        return "heading"
+    
+    # Check for code block (starts and ends with 3 backticks)
+    if block.startswith("```") and block.endswith("```"):
+        return "code"
+    
+    # Check for quote block (each line starts with '>')
+    if all(line.startswith(">") for line in block.splitlines()):
+        return "quote"
+    
+    # Check for unordered list (each line starts with '*' or '-')
+    if all(line.lstrip().startswith(("*", "-")) for line in block.splitlines()):
+        return "unordered_list"
+    
+    # Check for ordered list (each line starts with a number followed by a dot)
+    if all(re.match(r'^\d+\.', line.lstrip()) for line in block.splitlines()):
+        return "ordered_list"
+    
+    # If none of the above, it's a paragraph
+    return "paragraph"
 
 
 def text_to_textnodes(text):
