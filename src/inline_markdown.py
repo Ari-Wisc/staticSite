@@ -4,6 +4,41 @@ from textnode import TextNode, TextType
 from htmlnode import HTMLNode, LeafNode, ParentNode
 
 
+def text_to_children(text):
+    inline_nodes = []
+
+    # If there are no inline elements (bold, italic, code), return the text directly
+    if not any(marker in text for marker in ["**", "*", "`"]):
+        return [LeafNode(None, text)]  # Directly add the text without wrapping in a span
+
+    # Process for inline markdown: bold (**), italic (*), and code (`).
+    
+    # Handle **bold**
+    while "**" in text:
+        before, bold_text, after = text.split("**", 2)
+        inline_nodes.append(LeafNode("span", before))
+        inline_nodes.append(LeafNode("strong", bold_text))
+        text = after
+
+    # Handle *italic*
+    while "*" in text:
+        before, italic_text, after = text.split("*", 2)
+        inline_nodes.append(LeafNode("span", before))
+        inline_nodes.append(LeafNode("em", italic_text))
+        text = after
+
+    # Handle `code`
+    while "`" in text:
+        before, code_text, after = text.split("`", 2)
+        inline_nodes.append(LeafNode("span", before))
+        inline_nodes.append(LeafNode("code", code_text))
+        text = after
+
+    # Add any remaining text (if there is anything left)
+    if text:
+        inline_nodes.append(LeafNode("span", text))
+
+    return inline_nodes
 
 def markdown_to_html_node(markdown):
     # Step 1: Split the markdown into blocks
@@ -56,41 +91,7 @@ def markdown_to_html_node(markdown):
         parent_node.children.append(block_node)
     
     return parent_node
-def text_to_children(text):
-    inline_nodes = []
 
-    # If there are no inline elements (bold, italic, code), return the text directly
-    if not any(marker in text for marker in ["**", "*", "`"]):
-        return [LeafNode(None, text)]  # Directly add the text without wrapping in a span
-
-    # Process for inline markdown: bold (**), italic (*), and code (`).
-    
-    # Handle **bold**
-    while "**" in text:
-        before, bold_text, after = text.split("**", 2)
-        inline_nodes.append(LeafNode("span", before))
-        inline_nodes.append(LeafNode("strong", bold_text))
-        text = after
-
-    # Handle *italic*
-    while "*" in text:
-        before, italic_text, after = text.split("*", 2)
-        inline_nodes.append(LeafNode("span", before))
-        inline_nodes.append(LeafNode("em", italic_text))
-        text = after
-
-    # Handle `code`
-    while "`" in text:
-        before, code_text, after = text.split("`", 2)
-        inline_nodes.append(LeafNode("span", before))
-        inline_nodes.append(LeafNode("code", code_text))
-        text = after
-
-    # Add any remaining text (if there is anything left)
-    if text:
-        inline_nodes.append(LeafNode("span", text))
-
-    return inline_nodes
 
 def markdown_to_blocks(markdown):
     """
